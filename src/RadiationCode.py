@@ -1,26 +1,31 @@
 import math
 import  numpy as np
 import pickle
+import os
+import inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+datadir = parentdir+'/data/'
 class ZonalMethod:
     def __init__(self):
         self.L=1.0 #m
 
     def sisj_eval(self):
-        file_path = 'DirectExchangeFactor_ss'
+        file_path = datadir+'DirectExchangeFactor_ss'
         with open(file_path, 'rb') as file:
             sisj_data = pickle.load(file)
 
         return sisj_data
 
     def gisj_eval(self):
-        file_path = 'DirectExchangeFactor_gs'
+        file_path = datadir+'DirectExchangeFactor_gs'
         with open(file_path, 'rb') as file:
             gisj_data = pickle.load(file)
 
         return gisj_data
 
     def gigj_eval(self):
-        file_path = 'DirectExchangeFactor_gg'
+        file_path = datadir+'DirectExchangeFactor_gg'
         with open(file_path, 'rb') as file:
             gigj_data = pickle.load(file)
 
@@ -161,7 +166,7 @@ class DirectExchangeFactor:
             for j in range(i+1,N1):
                 S[i,j] = self.sisj(i,j)
                 S[j,i] = S[i,j]
-        file_path = 'DirectExchangeFactor_ss'
+        file_path = datadir+'DirectExchangeFactor_ss'
         with open(file_path, 'wb') as file:
             pickle.dump(S, file, pickle.HIGHEST_PROTOCOL)
 
@@ -173,7 +178,7 @@ class DirectExchangeFactor:
         for i in range(N1):
             for j in range(N2):
                 GS[i, j] = self.gisj(i, j)
-        file_path = 'DirectExchangeFactor_gs'
+        file_path = datadir+'DirectExchangeFactor_gs'
         with open(file_path, 'wb') as file:
             pickle.dump(GS, file, pickle.HIGHEST_PROTOCOL)
 
@@ -182,7 +187,7 @@ class DirectExchangeFactor:
             for j in range(i+1,N1):
                 GG[i, j] = self.gigj(i, j)
                 GG[j, i] = GG[i, j]
-        file_path = 'DirectExchangeFactor_gg'
+        file_path = datadir+'DirectExchangeFactor_gg'
         with open(file_path, 'wb') as file:
             pickle.dump(GG, file, pickle.HIGHEST_PROTOCOL)
 
