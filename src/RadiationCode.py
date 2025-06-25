@@ -9,6 +9,7 @@ datadir = parentdir+'/data/'
 class ZonalMethod:
     def __init__(self):
         self.L=1.0 #m
+        self.sigma = 5.67e-8
 
     def sisj_eval(self):
         file_path = datadir+'DirectExchangeFactor_ss'
@@ -54,7 +55,7 @@ class ZonalMethod:
 
         return Q
 
-    def main(self,mesh_surf,mesh_vol):
+    def matrix_main(self,mesh_surf,mesh_vol):
         DEF_obj = DirectExchangeFactor(mesh_surf,mesh_vol)
         sisj =self.sisj_eval()
         gisj = self.gisj_eval()
@@ -71,6 +72,19 @@ class ZonalMethod:
         GiGj = gigj + Q @ SiGj
 
         return SiSj, SiGj, GiSj, GiGj
+
+    def solver(self, mesh_surf_obj,mesh_vol_obj,T_surf,T_vol):
+        epsilon_surf = 0.9 * np.ones(mesh_surf_obj.N_surf)
+        kappa = mesh_vol_obj.kappa
+        SiSj, SiGj, GiSj, GiGj = self.matrix_main(mesh_surf_obj, mesh_vol_obj)
+
+        Eb_s = self.sigma * (T_surf ** 4)
+        Eb_g = self.sigma * (T_vol ** 4)
+
+        Q_s = (epsilon_surf * mesh_surf_obj.Area * Eb_s) - (SiSj @ Eb_s) - (SiGj @ Eb_g)
+        Q_g = (4 * kappa * mesh_vol_obj.Volume * Eb_g) - (GiSj @ Eb_s) - (GiGj @ Eb_g)
+
+        return Q_s,Q_g
 
 
 

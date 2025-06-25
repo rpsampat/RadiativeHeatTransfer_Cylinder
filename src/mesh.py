@@ -4,17 +4,19 @@ class Surf_Cyl_Mesh:
     def __init__(self):
         self.num_azimuthal= 10
         self.num_axial = 30
-        self.N_surf = self.num_axial*self.num_azimuthal
-        self.x=np.zeros(self.N_surf)
-        self.y=np.zeros(self.N_surf)
-        self.z = np.zeros(self.N_surf)
-        self.Area = np.zeros(self.N_surf)
-        self.n_x = np.zeros(self.N_surf)
-        self.n_y=np.zeros(self.N_surf)
-        self.n_z =np.zeros(self.N_surf)
         self.L = 0.3 #m
         self.D = 0.10 #m
         # self.cyl_coords()
+    def initialize(self):
+        self.N_surf = self.num_axial * self.num_azimuthal
+        self.x = np.zeros(self.N_surf)
+        self.y = np.zeros(self.N_surf)
+        self.z = np.zeros(self.N_surf)
+        self.Area = np.zeros(self.N_surf)
+        self.n_x = np.zeros(self.N_surf)
+        self.n_y = np.zeros(self.N_surf)
+        self.n_z = np.zeros(self.N_surf)
+        self.cyl_coords()
 
     def cyl_coords(self):
         count=0
@@ -37,19 +39,22 @@ class Vol_Cyl_Mesh:
         self.num_azimuthal= 10
         self.num_axial = 30
         self.num_radial  = 10
-        self.N_vol = self.num_axial*self.num_azimuthal*self.num_radial
 
-        self.x=np.zeros(self.N_vol)
-        self.y=np.zeros(self.N_vol)
+        self.L = 0.3 #m
+        self.D = 0.10 #m
+
+    def initialize(self):
+        self.N_vol = self.num_axial * self.num_azimuthal * self.num_radial
+        self.x = np.zeros(self.N_vol)
+        self.y = np.zeros(self.N_vol)
         self.z = np.zeros(self.N_vol)
         self.Volume = np.zeros(self.N_vol)
         self.n_x = np.zeros(self.N_vol)
-        self.n_y=np.zeros(self.N_vol)
-        self.n_z =np.zeros(self.N_vol)
-        self.kappa = 10*np.ones(self.N_vol)
-        self.L = 0.3 #m
-        self.D = 0.10 #m
-        # self.cyl_coords()
+        self.n_y = np.zeros(self.N_vol)
+        self.n_z = np.zeros(self.N_vol)
+        self.kappa = 10 * np.ones(self.N_vol)
+
+        self.cyl_coords()
 
     def cyl_coords(self):
         count=0
@@ -70,3 +75,34 @@ class Vol_Cyl_Mesh:
                     count+=1
         self.Volume_total = (math.pi*(self.D**2)/4)*self.L
 
+class Surf_Cyl_Wall_Mesh:
+    def __init__(self):
+        self.num_thickness= 10
+        self.num_axial = 100
+        self.L = 0.3 #m
+        self.D = 0.10 #inner diameter in m
+        self.thickness = 0.003 #m
+
+    def initialize(self):
+        self.N_surf = self.num_axial * self.num_thickness
+        self.y = np.zeros(self.N_surf)
+        self.z = np.zeros(self.N_surf)
+        self.k_mat = np.ones(self.N_surf)
+        self.d_y = np.zeros(self.N_surf)
+        self.d_z = np.zeros(self.N_surf)
+
+        self.cyl_coords()
+
+    def cyl_coords(self):
+        count=0
+        dy = self.thickness/self.num_thickness
+        dz = self.L/self.num_axial
+        for i in range(self.num_axial):
+            for j in range(self.num_thickness):
+
+                self.y[count] = dy*j + (self.D/2)
+                self.z[count] = dz*i
+                self.d_y[count] = dy
+                self.d_z[count] = dz
+
+                count+=1

@@ -36,14 +36,14 @@ class SimplCylinder:
         mesh_vol_obj.L = L
         mesh_surf_obj.D = D
         mesh_vol_obj.D = D
-        mesh_surf_obj.cyl_coords()
-        mesh_vol_obj.cyl_coords()
+        mesh_surf_obj.initialize()
+        mesh_vol_obj.initialize()
 
         epsilon_surf = 0.9 * np.ones(mesh_surf_obj.N_surf)
         kappa = mesh_vol_obj.kappa
 
         RC_obj = RadiationCode.ZonalMethod()
-        SiSj, SiGj, GiSj, GiGj = RC_obj.main(mesh_surf_obj,mesh_vol_obj)
+        SiSj, SiGj, GiSj, GiGj = RC_obj.matrix_main(mesh_surf_obj,mesh_vol_obj)
 
         T_surf = self.wall_temperature(mesh_surf_obj)
         T_vol = self.vol_temperature(mesh_vol_obj)
@@ -58,14 +58,18 @@ class SimplCylinder:
         x_s_plot = np.reshape(mesh_surf_obj.x, (mesh_surf_obj.num_azimuthal, mesh_surf_obj.num_axial), order='F')
         Q_s_plot = np.reshape(Q_s,(mesh_surf_obj.num_azimuthal,mesh_surf_obj.num_axial),order='F')
         img = ax[0].imshow(Q_s_plot,cmap='jet')
+        ax[0].invert_yaxis()
         img1 = ax[1].imshow(x_s_plot,cmap='jet')
+        ax[1].invert_yaxis()
         fig.colorbar(img)
         fig.colorbar(img1)
 
         fig1, ax1 = plt.subplots(ncols =1, nrows=2)
         Q_g_plot = np.reshape(Q_g, (mesh_vol_obj.num_radial,mesh_vol_obj.num_azimuthal, mesh_vol_obj.num_axial),order='F')
         img1 = ax1[0].imshow(Q_g_plot[:,:,2], cmap='jet')
+        ax1[0].invert_yaxis()
         img2 = ax1[1].imshow(Q_g_plot[:, 9, :], cmap='jet')
+        ax1[1].invert_yaxis()
         fig1.colorbar(img1)
         fig1.colorbar(img2)
 
