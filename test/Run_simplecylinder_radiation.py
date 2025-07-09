@@ -42,23 +42,35 @@ class SimplCylinder:
         epsilon_surf = 0.9 * np.ones(mesh_surf_obj.N_surf)
         kappa = mesh_vol_obj.kappa
 
-        RC_obj = RadiationCode.ZonalMethod()
-        SiSj, SiGj, GiSj, GiGj = RC_obj.matrix_main(mesh_surf_obj,mesh_vol_obj)
-
         T_surf = self.wall_temperature(mesh_surf_obj)
         T_vol = self.vol_temperature(mesh_vol_obj)
 
-        Eb_s = self.sigma*(T_surf**4)
-        Eb_g = self.sigma*(T_vol**4)
+        RC_obj = RadiationCode.ZonalMethod()
+        SiSj, SiGj, GiSj, GiGj = RC_obj.matrix_main(mesh_surf_obj,mesh_surf_obj,mesh_vol_obj)
 
-        Q_s = (epsilon_surf*mesh_surf_obj.Area*Eb_s) - (SiSj @ Eb_s) - (SiGj @ Eb_g)
-        Q_g = (4*kappa*mesh_vol_obj.Volume*Eb_g) - (GiSj @ Eb_s) - (GiGj @ Eb_g)
+
+
+        Q_s,Q_g,Q_si_wo_SiGj = RC_obj.solver(mesh_surf_obj,mesh_surf_obj,mesh_vol_obj,T_surf,T_surf,T_vol,SiSj, SiGj, GiSj, GiGj)
 
         fig,ax = plt.subplots(ncols =1, nrows=2)
         x_s_plot = np.reshape(mesh_surf_obj.x, (mesh_surf_obj.num_azimuthal, mesh_surf_obj.num_axial), order='F')
         Q_s_plot = np.reshape(Q_s,(mesh_surf_obj.num_azimuthal,mesh_surf_obj.num_axial),order='F')
         img = ax[0].imshow(Q_s_plot,cmap='jet')
         ax[0].invert_yaxis()
+        ax[0].set_xlabel('Z (m)')
+        ax[0].set_ylabel('Azimuthal angle')
+        azimuthal_vals = np.linspace(0, 360, mesh_surf_obj.num_azimuthal)  # Azimuthal in degrees
+        axial_vals = np.linspace(0, mesh_surf_obj.L, mesh_surf_obj.num_axial)
+        xticks = range(mesh_surf_obj.num_axial)
+        # Choose tick indices (e.g., every 10th value)
+        azim_tick_idx = np.linspace(0, mesh_surf_obj.num_azimuthal - 1, mesh_surf_obj.num_azimuthal, dtype=int)
+        axial_tick_idx = np.linspace(0, mesh_surf_obj.num_axial - 1, mesh_surf_obj.num_axial, dtype=int)
+        ax[0].set_xticks(xticks[::3])
+
+        ax[0].set_yticks(range(mesh_surf_obj.num_azimuthal))
+        ax[0].set_xticklabels([f"{axial_vals[i]:.2f}" for i in axial_tick_idx[::3]])  # adjust number of ticks as needed
+        ax[0].set_yticklabels([f"{azimuthal_vals[i]:.0f}" for i in azim_tick_idx])
+
         img1 = ax[1].imshow(x_s_plot,cmap='jet')
         ax[1].invert_yaxis()
         fig.colorbar(img)

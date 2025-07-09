@@ -55,8 +55,8 @@ class ZonalMethod:
 
         return Q
 
-    def matrix_main(self,mesh_surf,mesh_vol):
-        DEF_obj = DirectExchangeFactor(mesh_surf,mesh_vol)
+    def matrix_main(self,mesh_surf,mesh_surf2,mesh_vol):
+        DEF_obj = DirectExchangeFactor(mesh_surf,mesh_surf2,mesh_vol)
         sisj =self.sisj_eval()
         gisj = self.gisj_eval()
         gigj = self.gigj_eval()
@@ -73,39 +73,49 @@ class ZonalMethod:
 
         return SiSj, SiGj, GiSj, GiGj
 
-    def solver(self, mesh_surf_obj,mesh_vol_obj,T_surf,T_vol):
+    def solver(self, mesh_surf_obj,mesh_surf2_obj,mesh_vol_obj,T_surf,T_surf2,T_vol,SiSj, SiGj, GiSj, GiGj):
         epsilon_surf = 0.9 * np.ones(mesh_surf_obj.N_surf)
         kappa = mesh_vol_obj.kappa
-        SiSj, SiGj, GiSj, GiGj = self.matrix_main(mesh_surf_obj, mesh_vol_obj)
+        # SiSj, SiGj, GiSj, GiGj = self.matrix_main(mesh_surf_obj, mesh_vol_obj)
 
         Eb_s = self.sigma * (T_surf ** 4)
+        Eb_s2 = self.sigma * (T_surf2 ** 4)
         Eb_g = self.sigma * (T_vol ** 4)
 
-        Q_s = (epsilon_surf * mesh_surf_obj.Area * Eb_s) - (SiSj @ Eb_s) - (SiGj @ Eb_g)
-        Q_g = (4 * kappa * mesh_vol_obj.Volume * Eb_g) - (GiSj @ Eb_s) - (GiGj @ Eb_g)
+        Q_si = (epsilon_surf * mesh_surf_obj.Area * Eb_s) - (SiSj @ Eb_s2) - (SiGj @ Eb_g)
+        Q_si_wo_SiGj = (epsilon_surf * mesh_surf_obj.Area * Eb_s) - (SiSj @ Eb_s2)
+        Q_gi = (4 * kappa * mesh_vol_obj.Volume * Eb_g) - (GiSj @ Eb_s) - (GiGj @ Eb_g)
 
-        return Q_s,Q_g
+        return Q_si,Q_gi,Q_si_wo_SiGj
 
 
 
 
 
 class DirectExchangeFactor:
-    def __init__(self,mesh_surf1,mesh_vol1):
+    def __init__(self,mesh_surf1,mesh_surf2,mesh_vol1):
         self.surf1 = mesh_surf1
+        self.surf2 = mesh_surf2
         self.vol1 = mesh_vol1
         self.main_surf()
         self.main_vol()
 
 
     def sisj(self,i,j):
-        s_x = self.surf1.x[i]-self.surf1.x[j]
-        s_y = self.surf1.y[i] - self.surf1.y[j]
-        s_z = self.surf1.z[i] - self.surf1.z[j]
+        s_x = self.surf1.x[i]-self.surf2.x[j]
+        s_y = self.surf1.y[i] - self.surf2.y[j]
+        s_z = self.surf1.z[i] - self.surf2.z[j]
         S2 = (s_x**2)+(s_y**2)+(s_z**2)
         cos_theta_i_S2 = ((self.surf1.n_x[i]*-s_x)+(self.surf1.n_y[i]*-s_y)+(self.surf1.n_z[i]*-s_z))/math.sqrt(S2)
-        cos_theta_j_S2 = ((self.surf1.n_x[j] * s_x) + (self.surf1.n_y[j] * s_y) + (self.surf1.n_z[j] * s_z))/math.sqrt(S2)
-        sisj = cos_theta_i_S2*cos_theta_j_S2*self.surf1.Area[i]*self.surf1.Area[j]/(math.pi*(S2))
+        cos_theta_j_S2 = ((self.surf2.n_x[j] * s_x) + (self.surf2.n_y[j] * s_y) + (self.surf2.n_z[j] * s_z))/math.sqrt(S2)
+        kappa = self.vol1.kappa[i]
+        kappa_S = kappa * math.sqrt(S2)
+        try:
+            ind_neg = np.where(cos_theta_i_S2<0)[0]
+            cos_theta_i_S2[ind_neg]=0
+        except:
+            pass
+        sisj = math.exp(-kappa_S)*cos_theta_i_S2*cos_theta_j_S2*self.surf1.Area[i]*self.surf1.Area[j]/(math.pi*(S2))
 
         return sisj
 
@@ -114,8 +124,11 @@ class DirectExchangeFactor:
         s_y = self.vol1.y[i] - self.surf1.y[j]
         s_z = self.vol1.z[i] - self.surf1.z[j]
         S2 = (s_x ** 2) + (s_y ** 2) + (s_z ** 2)
-        cos_theta_j_S2 = ((self.surf1.n_x[j] * s_x) + (self.surf1.n_y[j] * s_y) + (self.surf1.n_z[j] * s_z))/math.sqrt(S2)
-        gisj = cos_theta_j_S2 * self.surf1.Area[j] * self.vol1.Volume[i] / (math.pi * (S2))
+        cos_theta_j_S2 = ((self.surf2.n_x[j] * s_x) + (self.surf2.n_y[j] * s_y) + (self.surf2.n_z[j] * s_z))/math.sqrt(S2)
+        # kappa, kappa_S = self.path_absorption(i,j)
+        kappa = self.vol1.kappa[i]
+        kappa_S = kappa * math.sqrt(S2)
+        gisj = math.exp(-kappa_S)*cos_theta_j_S2 * kappa * self.surf1.Area[j] * self.vol1.Volume[i] / (math.pi * (S2))
 
         return gisj
 
