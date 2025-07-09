@@ -2,7 +2,6 @@ import os
 import sys
 import inspect
 import numpy as np
-import math
 import matplotlib.pyplot as plt
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -11,26 +10,20 @@ sys.path.insert(0, parentdir+'/src/')
 import mesh
 import RadiationCode
 
-class AxialTempProfile_Cylinder:
+class SimplCylinder:
     def __init__(self):
         a=0
         self.sigma = 5.67e-8
 
-    def wall_temperature(self,mesh_surf):
-        Twall = 800 # K
+    def wall_temperature(self,mesh_surf,Twall):
+        #Twall = 800 # K
         T_surf = Twall*np.ones(mesh_surf.N_surf)
 
         return T_surf
 
     def vol_temperature(self, mesh_vol):
-        Tmax = 2000  # K
-        z0 = max(mesh_vol.z)/3
-        Tmin = 1100
-        alpha = 100.0
-        T_vol = np.ones(mesh_vol.N_vol)
-        for i in range(len(mesh_vol.z)):
-            z = mesh_vol.z[i]
-            T_vol[i] = Tmin+(Tmax-Tmin)/((1+(math.e**(-alpha*(z-z0)))))
+        T = 2000  # K
+        T_vol = T * np.ones(mesh_vol.N_vol)
 
         return T_vol
 
@@ -46,17 +39,24 @@ class AxialTempProfile_Cylinder:
         mesh_surf_obj.initialize()
         mesh_vol_obj.initialize()
 
+        mesh_surf_obj2 = mesh.Surf_Cyl_Mesh()
+        mesh_surf_obj2.L = L  #
+        mesh_surf_obj2.D = D+0.05
+        mesh_surf_obj2.initialize()
+
         epsilon_surf = 0.9 * np.ones(mesh_surf_obj.N_surf)
         kappa = mesh_vol_obj.kappa
 
-        T_surf = self.wall_temperature(mesh_surf_obj)
+        T_surf = self.wall_temperature(mesh_surf_obj,Twall=1000)
+        T_surf2 = self.wall_temperature(mesh_surf_obj2,Twall=700)
         T_vol = self.vol_temperature(mesh_vol_obj)
 
         RC_obj = RadiationCode.ZonalMethod()
-        SiSj, SiGj, GiSj, GiGj = RC_obj.matrix_main(mesh_surf_obj, mesh_surf_obj, mesh_vol_obj)
+        SiSj, SiGj, GiSj, GiGj = RC_obj.matrix_main(mesh_surf_obj,mesh_surf_obj2,mesh_vol_obj)
 
-        Q_s, Q_g,Q_si_wo_SiGj = RC_obj.solver(mesh_surf_obj, mesh_surf_obj, mesh_vol_obj, T_surf, T_surf, T_vol, SiSj, SiGj, GiSj,
-                                 GiGj)
+
+
+        Q_s,Q_g = RC_obj.solver(mesh_surf_obj,mesh_surf_obj2,mesh_vol_obj,T_surf,T_surf2,T_vol,SiSj, SiGj, GiSj, GiGj)
 
         fig,ax = plt.subplots(ncols =1, nrows=2)
         x_s_plot = np.reshape(mesh_surf_obj.x, (mesh_surf_obj.num_azimuthal, mesh_surf_obj.num_axial), order='F')
@@ -77,15 +77,12 @@ class AxialTempProfile_Cylinder:
         fig1.colorbar(img1)
         fig1.colorbar(img2)
 
-        fig2, ax2 = plt.subplots(ncols=1, nrows=2)
-        T_g_plot = np.reshape(T_vol, (mesh_vol_obj.num_radial, mesh_vol_obj.num_azimuthal, mesh_vol_obj.num_axial),
-                              order='F')
-        z_g_plot = np.reshape(mesh_vol_obj.z, (mesh_vol_obj.num_radial, mesh_vol_obj.num_azimuthal, mesh_vol_obj.num_axial),
-                              order='F')
-        img1 = ax2[0].imshow(T_g_plot[:, 1, :], cmap='jet')
-        ax2[0].invert_yaxis()
-        img2 = ax2[1].plot(z_g_plot[3, 1, :],T_g_plot[3, 1, :])
-        fig2.colorbar(img1)
+        # fig2, ax2 = plt.subplots(ncols=1, nrows=2)
+        # x_g_plot = np.reshape(mesh_vol_obj.x, (mesh_vol_obj.num_radial, mesh_vol_obj.num_azimuthal, mesh_vol_obj.num_axial),
+        #                       order='F')
+        # img1 = ax2[0].imshow(x_g_plot[:, :, 1], cmap='jet')
+        # img2 = ax2[1].imshow(x_g_plot[:, 0, :], cmap='jet')
+        # fig2.colorbar(img1)
         # fig2.colorbar(img2)
 
         plt.show()
@@ -93,5 +90,5 @@ class AxialTempProfile_Cylinder:
 
 
 if __name__=='__main__':
-    obj = AxialTempProfile_Cylinder()
+    obj = SimplCylinder()
     obj.main()

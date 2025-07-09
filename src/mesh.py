@@ -12,6 +12,7 @@ class Surf_Cyl_Mesh:
         self.x = np.zeros(self.N_surf)
         self.y = np.zeros(self.N_surf)
         self.z = np.zeros(self.N_surf)
+        self.theta = np.zeros(self.N_surf)
         self.Area = np.zeros(self.N_surf)
         self.n_x = np.zeros(self.N_surf)
         self.n_y = np.zeros(self.N_surf)
@@ -24,6 +25,7 @@ class Surf_Cyl_Mesh:
             for j in range(self.num_azimuthal):
                 d_theta = 2*math.pi/self.num_azimuthal
                 theta = (j+0.5)* d_theta
+                self.theta[count] = theta
                 self.x[count] = (self.D/2)*math.cos(theta)
                 self.y[count] = (self.D/2)*math.sin(theta)
                 self.z[count] = (i+1)*self.L/self.num_axial
@@ -52,7 +54,7 @@ class Vol_Cyl_Mesh:
         self.n_x = np.zeros(self.N_vol)
         self.n_y = np.zeros(self.N_vol)
         self.n_z = np.zeros(self.N_vol)
-        self.kappa = 10 * np.ones(self.N_vol)
+        self.kappa = (1/self.D) * np.ones(self.N_vol)
 
         self.cyl_coords()
 
@@ -68,7 +70,7 @@ class Vol_Cyl_Mesh:
                     self.x[count] = R*math.cos(theta)
                     self.y[count] = R*math.sin(theta)
                     self.z[count] = ((i)+0.5)*self.L/self.num_axial
-                    self.Volume[count] = R*R*d_theta*(self.L/self.num_axial)
+                    self.Volume[count] = (((R+dR)**2)-((R-dR)**2))*(d_theta/2)*(self.L/self.num_axial)
                     self.n_x[count] = -R*math.cos(theta)
                     self.n_y[count] = -R*math.sin(theta)
                     self.n_z[count] = 0
@@ -87,7 +89,7 @@ class Surf_Cyl_Wall_Mesh:
         self.N_surf = self.num_axial * self.num_thickness
         self.y = np.zeros(self.N_surf)
         self.z = np.zeros(self.N_surf)
-        self.k_mat = np.ones(self.N_surf)
+        self.k_mat = 11.4*np.ones(self.N_surf)
         self.d_y = np.zeros(self.N_surf)
         self.d_z = np.zeros(self.N_surf)
 
