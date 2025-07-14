@@ -71,6 +71,7 @@ def momentum_and_mass_bal(u_vect,p_vect,x_vect,m_jet,num_cells,rho,area,volume,P
 
         # Mass consv
         A_mat[num_cells+i,i] = (rho_e*area_e/2)-(rho_w*area_w/2)
+        B_vect[num_cells + i] += -m_jet[i]
         if i==0:
             A_mat[num_cells + i, num_cells + i] = (rho_e * area_e * d_e * 5 / (4 * (x_vect[i + 1] - x_vect[i]))) + (
                     rho_w * area_w * d_w * 5 / (4 * (x_vect[i+1] - x_vect[i])))  # P_P
@@ -130,36 +131,209 @@ def solver(u_vect,p_vect,x_vect,m_jet,num_cells,rho,area,volume,P_in,U_in,rho_in
 
     return u_out, p_out
 
-def solver_0D(u_vect,p_vect,x_vect,m_jet,num_cells,rho,area,volume,P_in,U_in,rho_in,area_in,area_w1,area_w2):
+def solver_0D(u_vect,p_vect,x_vect,m_jet,num_cells,rho,area,volume,P_in,U_in,rho_in,area_in,area_w1,area_w2,area_jet):
     u2=np.zeros(num_cells)
     P2 = np.zeros(num_cells)
     for i in range(num_cells):
-        u_jet = m_jet[i]/(rho[i]*area[i])
+        if m_jet[i]>0:
+            u_jet = m_jet[i]/(rho[i]*area_jet[i])
+        else:
+            u_jet= 0
         if i==0:
             u2[i] = np.sqrt(((m_jet[i] * u_jet) + (rho_in * (U_in ** 2) * area_in)) / (rho[i] * area[i]))
-            P2[i] = (((((rho_in * area_in) / (rho[i] * area[i])) - 1) * (rho[i] * area[i] * (u2[i] ** 2))) + (
-                        P_in * area_in) - m_jet[i] * u2[i])/area[i]
+            P2[i] = (((((rho_in * area_in) / (rho[i] * area[i])) - 1) * (rho[i] * area[i] * (u_vect[i] ** 2))) + (
+                        P_in * area_in) - m_jet[i] * u_vect[i])/area[i]
         else:
             u2[i] = np.sqrt(((m_jet[i]*u_jet)+(rho[i-1]*(u_vect[i-1]**2)*area[i-1]))/(rho[i]*area[i]))
-            P2[i] =( ((((rho[i-1]*area[i-1])/(rho[i]*area[i]))-1)*(rho[i]*area[i]*(u2[i]**2))) + (p_vect[i-1]*area[i-1]) - m_jet[i]*u2[i])/area[i]
-
+            P2[i] =( ((((rho[i-1]*area[i-1])/(rho[i]*area[i]))-1)*(rho[i]*area[i]*(u_vect[i]**2))) + (p_vect[i-1]*area[i-1]) - m_jet[i]*u_vect[i])/area[i]
+        if math.isnan(P2[i]) or math.isnan(u2[i]):
+            print(area[i])
     return u2, P2
 
-def solver_energy(u_vect,p_vect,x_vect,m_jet,num_cells,rho,area,volume,P_in,U_in,rho_in,area_in,T_in, T_vect, mdot, Cp, conv1, conv2):
+def solver_energy_upwind(u_vect,p_vect,x_vect,m_jet,num_cells,rho,area,volume,P_in,U_in,rho_in,area_in,T_in, T_vect, mdot, Cp, conv1, conv2,area_jet):
     T2 = np.zeros(num_cells)
     for i in range(num_cells):
-        u_jet = m_jet[i] / (rho[i] * area[i])
-        if i==0:
-            mdot_in = rho_in*area_in*(U_in+u_vect[i])/2
-            U_w = (U_in+u_vect[i])/2
-            T2[i] = ((mdot_in * Cp[i]*T_in) + (0.5 * mdot_in * (U_w ** 2)) - (0.5 * m_jet[i] * (u_jet ** 2))
-                     - (0.5 * mdot[i] * (u_vect[i] ** 2)) + (P_in*U_in*area_in)-(p_vect[i]*u_vect[i]*area[i])) / (
-                                (mdot[i] * Cp[i]) + (m_jet[i] * Cp[i]))
+        if m_jet[i] > 0:
+            u_jet = m_jet[i] / (rho[i] * area_jet[i])
+            m_inj = m_jet[i]
         else:
-            T2[i] = ((mdot[i-1]*Cp[i-1]*T_vect[i-1]) + (0.5*mdot[i-1]*(u_vect[i-1]**2)) + (conv1[i-1]) + conv2[i-1]
-                     - (0.5*m_jet[i]*(u_jet**2)) - (0.5*mdot[i]*(u_vect[i]**2))+(p_vect[i-1]*u_vect[i-1]*area[i-1])
-                     - (p_vect[i]*u_vect[i]*area[i]))/((mdot[i]*Cp[i]) + (m_jet[i]*Cp[i]))
+            u_jet=0
+            m_inj = 0
 
+        if i==0:
+            u_w = U_in#(U_in+u_vect[i])/2
+            m_w = rho_in*area_in*(U_in)#rho_in*area_in*(U_in+u_vect[i])/2
+            Cp_w = (Cp[i] + Cp[i]) / 2
+            T_w = T_in#(T_vect[i] + T_in) / 2
+
+
+            u_e = u_vect[i]#(u_vect[i + 1] + u_vect[i]) / 2
+            m_e = mdot[i]#(mdot[i + 1] + mdot[i]) / 2# - m_jet[i]
+            Cp_e = Cp[i]#(Cp[i + 1] + Cp[i]) / 2
+            # T_e = (T_vect[i + 1] + T_vect[i]) / 2
+
+            T_e = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                  - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2)) + (
+                              p_vect[i - 1] * u_vect[i - 1] * area[i - 1])
+                  - (p_vect[i] * u_vect[i] * area[i])) / ((m_e * Cp_e) + (m_jet[i] * Cp[i]))
+            T2[i] = T_e#2*T_e-T_vect[i+1]
+        elif i==num_cells-1:
+            u_e = (2*u_vect[i]) / 2
+            m_e = mdot[i]#-m_jet[i]
+            Cp_e = (Cp[i] + Cp[i]) / 2
+            # T_e = (2*T_vect[i]) / 2
+
+            u_w = u_vect[i - 1]#(u_vect[i] + u_vect[i - 1]) / 2
+            m_w = mdot[i - 1]#(mdot[i] + mdot[i - 1]) / 2
+            Cp_w = Cp[i - 1]#(Cp[i] + Cp[i - 1]) / 2
+            T_w = T_vect[i - 1]#(T_vect[i] + T_vect[i - 1]) / 2
+
+
+            T_e = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                   - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2)) + (
+                           p_vect[i - 1] * u_vect[i - 1] * area[i - 1])
+                   - (p_vect[i] * u_vect[i] * area[i])) / ((m_e * Cp_e) + (m_jet[i] * Cp[i]))
+            T2[i] = T_e
+        else:
+            u_w = u_vect[i - 1]#(u_vect[i] + u_vect[i - 1]) / 2
+            u_e = u_vect[i]#(u_vect[i + 1] + u_vect[i]) / 2
+            m_w = mdot[i - 1]#(mdot[i] + mdot[i - 1]) / 2
+            m_e = mdot[i]#(mdot[i + 1] + mdot[i] ) / 2#- m_jet[i]) / 2
+            Cp_w = Cp[i - 1]#(Cp[i] + Cp[i - 1]) / 2
+            Cp_e = Cp[i]#(Cp[i + 1] + Cp[i]) / 2
+            T_w = T_vect[i - 1]#(T_vect[i] + T_vect[i - 1]) / 2
+            # T_e = (T_vect[i + 1] + T_vect[i]) / 2
+            T_e = ((m_w*Cp_w*T_w) + (0.5*m_w*(u_w**2)) + (conv1[i]) + conv2[i]
+                     - (0.5*m_jet[i]*(u_jet**2)) - (0.5*m_e*(u_e**2))+(p_vect[i-1]*u_vect[i-1]*area[i-1])
+                     - (p_vect[i]*u_vect[i]*area[i]))/((m_e*Cp_e) + (m_jet[i]*Cp[i]))
+            T2[i] = T_e#2*T_e-T_vect[i+1]
+            if math.isnan(T_e) or T_e < 0:
+                T_e_try = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                       - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2)))
+                print(m_e)
+
+    return T2
+
+def solver_energy_upwind_nopressure(u_vect,p_vect,x_vect,m_jet,num_cells,rho,area,volume,P_in,U_in,rho_in,area_in,T_in, T_vect, mdot, Cp, conv1, conv2,area_jet):
+    T2 = np.zeros(num_cells)
+    for i in range(num_cells):
+        if m_jet[i] > 0:
+            u_jet = m_jet[i] / (rho[i] * area_jet[i])
+            m_inj = m_jet[i]
+        else:
+            u_jet=0
+            m_inj = 0
+
+        if i==0:
+            u_w = U_in#(U_in+u_vect[i])/2
+            m_w = rho_in*area_in*(U_in)#rho_in*area_in*(U_in+u_vect[i])/2
+            Cp_w = (Cp[i] + Cp[i]) / 2
+            T_w = T_in#(T_vect[i] + T_in) / 2
+
+
+            u_e = u_vect[i]#(u_vect[i + 1] + u_vect[i]) / 2
+            m_e = mdot[i]#(mdot[i + 1] + mdot[i]) / 2# - m_jet[i]
+            Cp_e = Cp[i]#(Cp[i + 1] + Cp[i]) / 2
+            # T_e = (T_vect[i + 1] + T_vect[i]) / 2
+
+            T_e = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                  - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2))) / ((m_e * Cp_e) + (m_jet[i] * Cp[i]))
+            T2[i] = T_e#2*T_e-T_vect[i+1]
+        elif i==num_cells-1:
+            u_e = (2*u_vect[i]) / 2
+            m_e = mdot[i]#-m_jet[i]
+            Cp_e = (Cp[i] + Cp[i]) / 2
+            # T_e = (2*T_vect[i]) / 2
+
+            u_w = u_vect[i - 1]#(u_vect[i] + u_vect[i - 1]) / 2
+            m_w = mdot[i - 1]#(mdot[i] + mdot[i - 1]) / 2
+            Cp_w = Cp[i - 1]#(Cp[i] + Cp[i - 1]) / 2
+            T_w = T_vect[i - 1]#(T_vect[i] + T_vect[i - 1]) / 2
+
+
+            T_e = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                   - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2))) / ((m_e * Cp_e) + (m_jet[i] * Cp[i]))
+            T2[i] = T_e
+        else:
+            u_w = u_vect[i - 1]#(u_vect[i] + u_vect[i - 1]) / 2
+            u_e = u_vect[i]#(u_vect[i + 1] + u_vect[i]) / 2
+            m_w = mdot[i - 1]#(mdot[i] + mdot[i - 1]) / 2
+            m_e = mdot[i]#(mdot[i + 1] + mdot[i] ) / 2#- m_jet[i]) / 2
+            Cp_w = Cp[i - 1]#(Cp[i] + Cp[i - 1]) / 2
+            Cp_e = Cp[i]#(Cp[i + 1] + Cp[i]) / 2
+            T_w = T_vect[i - 1]#(T_vect[i] + T_vect[i - 1]) / 2
+            # T_e = (T_vect[i + 1] + T_vect[i]) / 2
+            T_e = ((m_w*Cp_w*T_w) + (0.5*m_w*(u_w**2)) + (conv1[i]) + conv2[i]
+                     - (0.5*m_jet[i]*(u_jet**2)) - (0.5*m_e*(u_e**2)))/((m_e*Cp_e) + (m_jet[i]*Cp[i]))
+            T2[i] = T_e#2*T_e-T_vect[i+1]
+            if math.isnan(T_e) or T_e < 0:
+                T_e_try = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                       - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2)))
+                print(m_e)
+
+    return T2
+
+def solver_energy(u_vect,p_vect,x_vect,m_jet,num_cells,rho,area,volume,P_in,U_in,rho_in,area_in,T_in, T_vect, mdot, Cp, conv1, conv2,area_jet):
+    T2 = np.zeros(num_cells)
+    for i in range(num_cells):
+        if m_jet[i] > 0:
+            u_jet = m_jet[i] / (rho[i] * area_jet[i])
+            m_inj = m_jet[i]
+        else:
+            u_jet=0
+            m_inj = 0
+
+        if i==0:
+            u_w = (U_in+u_vect[i])/2
+            m_w = rho_in*area_in*(U_in+u_vect[i])/2
+            Cp_w = (Cp[i] + Cp[i]) / 2
+            T_w = (T_vect[i] + T_in) / 2
+
+
+            u_e = (u_vect[i + 1] + u_vect[i]) / 2
+            m_e = (mdot[i + 1] + mdot[i]) / 2# - m_jet[i]
+            Cp_e = (Cp[i + 1] + Cp[i]) / 2
+            # T_e = (T_vect[i + 1] + T_vect[i]) / 2
+
+            T_e = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                  - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2)) + (
+                              p_vect[i - 1] * u_vect[i - 1] * area[i - 1])
+                  - (p_vect[i] * u_vect[i] * area[i])) / ((m_e * Cp_e) + (m_jet[i] * Cp[i]))
+            T2[i] = 2*T_e-T_vect[i+1]
+        elif i==num_cells-1:
+            u_e = (2*u_vect[i]) / 2
+            m_e = mdot[i]#-m_jet[i]
+            Cp_e = (Cp[i] + Cp[i]) / 2
+            # T_e = (2*T_vect[i]) / 2
+
+            u_w = (u_vect[i] + u_vect[i - 1]) / 2
+            m_w = (mdot[i] + mdot[i - 1]) / 2
+            Cp_w = (Cp[i] + Cp[i - 1]) / 2
+            T_w = (T_vect[i] + T_vect[i - 1]) / 2
+
+
+            T_e = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                   - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2)) + (
+                           p_vect[i - 1] * u_vect[i - 1] * area[i - 1])
+                   - (p_vect[i] * u_vect[i] * area[i])) / ((m_e * Cp_e) + (m_jet[i] * Cp[i]))
+            T2[i] = T_e
+        else:
+            u_w = (u_vect[i] + u_vect[i - 1]) / 2
+            u_e = (u_vect[i + 1] + u_vect[i]) / 2
+            m_w = (mdot[i] + mdot[i - 1]) / 2
+            m_e = (mdot[i + 1] + mdot[i] ) / 2#- m_jet[i]) / 2
+            Cp_w = (Cp[i] + Cp[i - 1]) / 2
+            Cp_e = (Cp[i + 1] + Cp[i]) / 2
+            T_w = (T_vect[i] + T_vect[i - 1]) / 2
+            # T_e = (T_vect[i + 1] + T_vect[i]) / 2
+            T_e = ((m_w*Cp_w*T_w) + (0.5*m_w*(u_w**2)) + (conv1[i]) + conv2[i]
+                     - (0.5*m_jet[i]*(u_jet**2)) - (0.5*m_e*(u_e**2))+(p_vect[i-1]*u_vect[i-1]*area[i-1])
+                     - (p_vect[i]*u_vect[i]*area[i]))/((m_e*Cp_e) + (m_jet[i]*Cp[i]))
+            T2[i] = 2*T_e-T_vect[i+1]
+            if math.isnan(T_e) or T_e < 0:
+                T_e_try = ((m_w * Cp_w * T_w) + (0.5 * m_w * (u_w ** 2)) + (conv1[i]) + conv2[i]
+                       - (0.5 * m_jet[i] * (u_jet ** 2)) - (0.5 * m_e * (u_e ** 2)))
+                print(m_e)
     return T2
 
 

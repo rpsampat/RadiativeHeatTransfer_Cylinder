@@ -13,17 +13,20 @@ class FluidHeatTransfer:
     def __init__(self):
         self.L=1
         self.num_axial = 100
-        self.m_in_annulus = 0.1# kg/s
+        self.m_in_annulus = 0.05# kg/s
         self.T_in = 1100 # K
         self.P_in = 10e5 # Pa
         # Cooling hole specs
         self.hole_axial_loc = np.array([0.2, 0.5, 0.75])  # distance from burner head as a fraction of liner length
+        self.hole_dia = np.array([0.001,0.001,0.001]) # m
+        self.num_holes_axial = np.array([10,10,10])
         # mass flow as a fraction of cooling flow at the inlet of the annulus near the burner head.
         # Injection flows correspond to location specified in hole_axial_loc
-        self.m_inj_frac = np.array([0.1,0.20,0.1])#np.array([0.0, 0.0, 0.0])  #
+        self.m_inj_frac = np.array([0.2,0.2,0.2])#np.array([0.0, 0.0, 0.0]) #np.array([0.1,0.20,0.1])#
         # if np.sum(self.m_inj_frac)>1:
         #     self.m_inj_frac = self.m_inj_frac/np.sum(self.m_inj_frac)
         self.gas = ct.Solution('air.yaml')
+        self.X_dict_cooling = self.gas.X
 
     # def convection_internal(self):
     #     eta = 0.23 # effectiveness of film cooling mechanism in reducing heat transfer; lower is more cooling
@@ -33,18 +36,45 @@ class FluidHeatTransfer:
         self.num_axial = mesh_wall2.num_axial
         self.L = mesh_wall2.L
         self.m_inj = np.zeros(self.num_axial)
+        self.area_inj = np.zeros(self.num_axial)
         axial_loc = (np.array(range(self.num_axial))+1)*self.L/self.num_axial
-        for inj_ind in range(len(self.hole_axial_loc)):
-            loc = self.hole_axial_loc[inj_ind]*self.L
-            ind = np.where(axial_loc>=loc)[0][0]
-            self.m_inj[ind] = self.m_inj_frac[inj_ind] * self.m_in_annulus
+        if np.sum(self.m_inj_frac)>0:
+            for inj_ind in range(len(self.hole_axial_loc)):
+                loc = self.hole_axial_loc[inj_ind]*self.L
+                ind = np.where(axial_loc>=loc)[0][0]
+                if mesh_wall2.d_z[ind]>self.hole_dia[inj_ind]:
+                    print(mesh_wall2.d_z[ind])
+                    self.m_inj[ind] += self.m_inj_frac[inj_ind] * self.m_in_annulus
+                    self.area_inj[ind] += (math.pi/4)*(self.hole_dia[inj_ind]**2)*self.num_holes_axial[inj_ind]
+                else:
+                    dia_fact = self.hole_dia[inj_ind]/mesh_wall2.d_z[ind]
+                    m_inj_discrete = self.m_inj_frac[inj_ind] * self.m_in_annulus/dia_fact
+                    self.m_inj[ind] += m_inj_discrete
+                    self.area_inj[ind] += (math.pi / 4) * (self.hole_dia[inj_ind] *mesh_wall2.d_z[ind]) * self.num_holes_axial[inj_ind]
+                    num_elem = int((dia_fact-1)/2)
+                    for i in range(num_elem):
+                        self.m_inj[ind + i] += m_inj_discrete
+                        self.area_inj[ind+i] += (math.pi / 4) * (self.hole_dia[inj_ind] * mesh_wall2.d_z[ind]) * \
+                                             self.num_holes_axial[inj_ind]
+                        self.m_inj[ind-i] += m_inj_discrete
+                        self.area_inj[ind-i] += (math.pi / 4) * (self.hole_dia[inj_ind] * mesh_wall2.d_z[ind]) * \
+                                             self.num_holes_axial[inj_ind]
+                        if i==num_elem-1:
+                            frac_elem = ((dia_fact-1)/2)-int((dia_fact-1)/2)
+                            self.m_inj[ind + i + 1] += m_inj_discrete *frac_elem
+                            self.area_inj[ind + i + 1] += (math.pi / 4) * (self.hole_dia[inj_ind] * mesh_wall2.d_z[ind]) * \
+                                                     self.num_holes_axial[inj_ind] * frac_elem
+                            self.m_inj[ind - i - 1] += m_inj_discrete * frac_elem
+                            self.area_inj[ind - i - 1] += (math.pi / 4) * (self.hole_dia[inj_ind] * mesh_wall2.d_z[ind]) * \
+                                                     self.num_holes_axial[inj_ind] * frac_elem
+
         mass_bal_mat = np.zeros((self.num_axial, self.num_axial))
         mass_bound = np.zeros(self.num_axial)
         area_channel = np.zeros(self.num_axial)
         perimeter_hydraulic = np.zeros(self.num_axial)
         self.dx = mesh_wall2.d_z[[(i) * mesh_wall2.num_thickness for i in range(self.num_axial)]]
-        self.a_wall1 = mesh_wall1.d_z[[(i) * mesh_wall1.num_thickness for i in range(self.num_axial)]]*mesh_wall1.D*math.pi
-        self.a_wall2 = mesh_wall2.d_z[[(i) * mesh_wall2.num_thickness for i in range(self.num_axial)]]*mesh_wall2.D*math.pi
+        self.a_wall1 = mesh_wall1.d_z[[((i) * mesh_wall1.num_thickness)+1 for i in range(self.num_axial)]]*mesh_wall1.D*math.pi
+        self.a_wall2 = mesh_wall2.d_z[[(i) * mesh_wall2.num_thickness for i in range(self.num_axial)]]*(mesh_wall2.D+mesh_wall2.thickness)*math.pi
         for i in range(self.num_axial):
             r1 = mesh_wall2.y[((i + 1) * mesh_wall2.num_thickness) - 1]
             r2 = mesh_wall1.y[((i) * mesh_wall1.num_thickness)]
@@ -82,9 +112,11 @@ class FluidHeatTransfer:
 
         mu = np.zeros(self.num_axial)
         self.Cp = np.zeros(self.num_axial)
+        Pr =np.zeros(self.num_axial)
+        k = np.zeros(self.num_axial)
         for i in range(self.num_axial):
             if T_annulus[i]<0 or P_annulus[i]<0 or rho_annulus[i]<0:
-                self.gas.TP = self.T_in,self.P_in
+                self.gas.TPX = self.T_in,self.P_in,self.X_dict_cooling
                 if P_annulus[i]<0:
                     P_annulus[i] =1e5#self.P_in
                 if T_annulus[i]<0:
@@ -92,16 +124,23 @@ class FluidHeatTransfer:
                 if rho_annulus[i]<0:
                     rho_annulus[i] = self.rho_in
             else:
-                self.gas.TP = T_annulus[i], P_annulus[i]
+                try:
+                    self.gas.TPX = T_annulus[i], P_annulus[i],self.X_dict_cooling
+                except:
+                    print(T_annulus[i])
+                    print(P_annulus[i])
+                    print(self.X_dict_cooling)
             mu[i] = self.gas.viscosity
             self.Cp[i]= self.gas.cp_mass
+            Pr[i] = self.gas.viscosity * self.gas.cp_mass / self.gas.thermal_conductivity
+            k[i] = self.gas.thermal_conductivity
 
         # Re = self.perimeter_channel*self.m_annulus/(mu*self.area_channel*math.pi)
-        Pr = 0.7
+
+        # print(Pr)
         dia_h = 4*self.area_channel/self.perimeter_channel
         # l = self.L
         # Nu = ((2 / (1 + 22 * Pr)) ** (1 / 6)) * ((Re * Pr * dia_h / l) ** (1 / 2))
-        k = 4e-2
         x = x+x[1]
         Nu_x = FilmCoolingLiner.convection_annulus(self.m_annulus, mu, Pr, dia_h, x)
         self.h1 = Nu_x * k / dia_h # outer wall
@@ -127,7 +166,7 @@ class FluidHeatTransfer:
 
 
 
-    def fluid_annulus_matrix_setup(self,T_w1,T_w2,pr):
+    def fluid_annulus_matrix_setup(self,T_w1,T_w2,pr,k_gas):
         energy_bal_mat = np.zeros((self.num_axial, self.num_axial))
         energy_bound = np.zeros(self.num_axial)
         pressure_bound = np.zeros(self.num_axial)
@@ -135,9 +174,8 @@ class FluidHeatTransfer:
         enthalpy_inj = self.m_inj*self.Cp*0.5
         conv1 = self.h1*self.a_wall1 # outer wall
         conv2 = self.h2*self.a_wall2 # inner wall
-        k=0.04
         for i in range(self.num_axial):
-
+            k = k_gas[i]
             if i == 0:
                 enthalpy_e = (enthalpy_flow[i] + enthalpy_flow[i + 1] / 2)
                 energy_bound[i] = (((enthalpy_flow[i]*self.T_in) + conv1[i]*T_w1[i] + conv2[i]*T_w2[i]
@@ -219,7 +257,6 @@ class FluidHeatTransfer:
         epsi_list = []
 
         for i in range(10000):
-
             # print('Uin=', self.U_in)
             rho_annulus = np.array(P_annulus * (28.8 / 8314) / T_annulus)
 
@@ -228,7 +265,7 @@ class FluidHeatTransfer:
             #                                           self.U_in,self.rho_in,self.area_channel[0])
             u_vect, p_vect = convection_1d_cfd.solver_0D(self.u, P_annulus, x_vect, self.m_inj, self.num_axial,
                                                       rho_annulus, self.area_channel, volume_cells_channel, self.P_in,
-                                                      self.U_in, self.rho_in, self.area_channel[0], self.a_wall1,self.a_wall2)
+                                                      self.U_in, self.rho_in, self.area_channel[0], self.a_wall1,self.a_wall2,self.area_inj)
             epsi_p = np.max(np.abs((P_annulus - p_vect) / (P_annulus)))
             epsi_u = np.max(np.abs((u_vect-self.u)/self.u))
             epsi_list.append(epsi_p)
@@ -245,10 +282,10 @@ class FluidHeatTransfer:
             # Energy Balance
             conv1 = self.h1 * self.a_wall1 * (T_w1-T_annulus) # outer wall
             conv2 = self.h2 * self.a_wall2 * (T_w2-T_annulus) # inner wall
-            T_annulus1 = convection_1d_cfd.solver_energy(self.u, P_annulus, x_vect, self.m_inj, self.num_axial,
+            T_annulus1 = convection_1d_cfd.solver_energy_upwind_nopressure(self.u, P_annulus, x_vect, self.m_inj, self.num_axial,
                                                       rho_annulus, self.area_channel, volume_cells_channel, self.P_in,
                                                       self.U_in, self.rho_in, self.area_channel[0],self.T_in, T_annulus,
-                                                         self.m_annulus, self.Cp, conv1, conv2)
+                                                         self.m_annulus, self.Cp, conv1, conv2, self.area_inj)
 
             T0 = np.array(T_annulus)
             epsi_T = np.max(np.abs((T_annulus1-T0)/T0))
@@ -299,12 +336,13 @@ class FluidHeatTransfer:
 
         # print('h1=',self.h1)
         print('Epsi_p=',epsi_p)
+        print('Epsi_t=', epsi_T)
         print('Epsi_u=',epsi_u)
 
         return self.h1, self.h2, np.array(T_annulus), np.array(P_out), np.array(rho_annulus)
 
     def main(self):
-        num_len = 30
+        num_len = 100
         L = 0.3
         # Wall2: liner
         mesh_wall2 = mesh.Surf_Cyl_Wall_Mesh()
@@ -335,6 +373,9 @@ class FluidHeatTransfer:
         ax.plot(T_annulus)
         fig1, ax1 = plt.subplots()
         ax1.plot(P_annulus/1e5)
+        fig1, ax1 = plt.subplots()
+        ax1.plot(q_conv_w2)
+        ax1.set_ylabel('h2')
         plt.show()
 
 
