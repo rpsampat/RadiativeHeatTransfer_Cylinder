@@ -43,6 +43,7 @@ class Vol_Cyl_Mesh:
         self.num_radial  = 10
 
         self.L = 0.3 #m
+        self.D0 = 0.0
         self.D = 0.10 #m
 
     def initialize(self):
@@ -65,8 +66,8 @@ class Vol_Cyl_Mesh:
                 d_theta = 2 * math.pi / self.num_azimuthal
                 theta = (j+0.5) * d_theta
                 for k in range(self.num_radial):
-                    dR = (self.D/2)/self.num_radial
-                    R = (k*dR) +(dR/2)
+                    dR = ((self.D-self.D0)/2)/self.num_radial
+                    R = (self.D0/2)+(k*dR) +(dR/2)
                     self.x[count] = R*math.cos(theta)
                     self.y[count] = R*math.sin(theta)
                     self.z[count] = ((i)+0.5)*self.L/self.num_axial
@@ -75,7 +76,7 @@ class Vol_Cyl_Mesh:
                     self.n_y[count] = -R*math.sin(theta)
                     self.n_z[count] = 0
                     count+=1
-        self.Volume_total = (math.pi*(self.D**2)/4)*self.L
+        self.Volume_total = (math.pi*((self.D**2)-(self.D0**2))/4)*self.L
 
 class Surf_Cyl_Wall_Mesh:
     def __init__(self):
