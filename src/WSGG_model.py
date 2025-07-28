@@ -76,9 +76,9 @@ class WSGG_model:
         count = 0
         a_h2o_sum = np.sum([a_h2o[i] for i in list(a_h2o.keys())])
         a_co2_sum = np.sum([a_co2[i] for i in list(a_co2.keys())])
-        print("Temp=",T)
-        print("Sum_ a_h2o=",a_h2o_sum)
-        print(a_co2_sum)
+        # print("Temp=",T)
+        # print("Sum_ a_h2o=",a_h2o_sum)
+        # print(a_co2_sum)
         kappa_eff={}
 
         for j in range(self.num_graygas+1):
@@ -108,7 +108,7 @@ class WSGG_model:
                 count+=1
 
         a_sum = np.sum([a_eff[i] for i in list(a_eff.keys())])
-        print("a_sum=",a_sum)
+        # print("a_sum=",a_sum)
 
 
         for j in range(self.num_graygas+1):
@@ -126,7 +126,7 @@ class WSGG_model:
             epsilon_co2+=a_co2_eff*(1-math.e**(-K_co2_eff*P*(X_co2)*L))
             epsilon_h2o += a_h2o_eff * (1 - math.e ** (-K_h2o_eff * P * (X_h2o) * L))
 
-        print("Epsi_h2o=",epsilon_h2o)
+        # print("Epsi_h2o=",epsilon_h2o)
 
         """print(a_eff)
         print(K_eff)
