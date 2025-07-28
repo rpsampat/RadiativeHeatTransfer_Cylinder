@@ -1,3 +1,6 @@
+import os
+import sys
+import inspect
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
@@ -8,6 +11,9 @@ from scipy.stats import alpha
 import mesh
 import convection_1d_cfd
 import FilmCoolingLiner
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+
 
 class FluidHeatTransfer:
     def __init__(self):
@@ -22,7 +28,8 @@ class FluidHeatTransfer:
         self.num_holes_axial = np.array([10,10,10])
         # mass flow as a fraction of cooling flow at the inlet of the annulus near the burner head.
         # Injection flows correspond to location specified in hole_axial_loc
-        self.m_inj_frac = np.array([0.2,0.2,0.2])#np.array([0.0, 0.0, 0.0]) #np.array([0.1,0.20,0.1])#
+        self.m_inj_frac = np.array([0.0, 0.0, 0.0]) #np.array([0.1,0.20,0.1])#np.array([0.0, 0.0, 0.0]) #np.array([0.2,0.2,0.2])#
+        # self.m_inj_frac = np.array([0.0, 0.0, 0.0])
         # if np.sum(self.m_inj_frac)>1:
         #     self.m_inj_frac = self.m_inj_frac/np.sum(self.m_inj_frac)
         self.gas = ct.Solution('air.yaml')
@@ -40,10 +47,11 @@ class FluidHeatTransfer:
         axial_loc = (np.array(range(self.num_axial))+1)*self.L/self.num_axial
         if np.sum(self.m_inj_frac)>0:
             for inj_ind in range(len(self.hole_axial_loc)):
+                # iterating over cooling holes
                 loc = self.hole_axial_loc[inj_ind]*self.L
                 ind = np.where(axial_loc>=loc)[0][0]
                 if mesh_wall2.d_z[ind]>self.hole_dia[inj_ind]:
-                    print(mesh_wall2.d_z[ind])
+                    # print("Mesh wall dz=",mesh_wall2.d_z[ind])
                     self.m_inj[ind] += self.m_inj_frac[inj_ind] * self.m_in_annulus
                     self.area_inj[ind] += (math.pi/4)*(self.hole_dia[inj_ind]**2)*self.num_holes_axial[inj_ind]
                 else:
@@ -266,6 +274,7 @@ class FluidHeatTransfer:
             u_vect, p_vect = convection_1d_cfd.solver_0D(self.u, P_annulus, x_vect, self.m_inj, self.num_axial,
                                                       rho_annulus, self.area_channel, volume_cells_channel, self.P_in,
                                                       self.U_in, self.rho_in, self.area_channel[0], self.a_wall1,self.a_wall2,self.area_inj)
+            p_vect = rho_annulus*(8314/28.8)*T_annulus
             epsi_p = np.max(np.abs((P_annulus - p_vect) / (P_annulus)))
             epsi_u = np.max(np.abs((u_vect-self.u)/self.u))
             epsi_list.append(epsi_p)
@@ -365,17 +374,44 @@ class FluidHeatTransfer:
 
         q_conv_w1, q_conv_w2, T_annulus, P_annulus, rho_annulus = self.solver(mesh_wall1, mesh_wall2,T_annulus, P_annulus, rho_annulus,T_w1, T_w2)
 
+        z = [mesh_wall2.z[i * mesh_wall2.num_thickness] for i in range(mesh_wall2.num_axial)]
+
         fig, ax = plt.subplots()
-        ax.plot(self.m_annulus)
-        fig, ax = plt.subplots()
-        ax.plot(self.u)
-        fig,ax = plt.subplots()
-        ax.plot(T_annulus)
+        ax.plot(z,self.m_annulus)
+        ax.set_xlabel('Z (m)')
+        ax.set_ylabel('$\dot{m}$ (kg/s)')
+        figname = 'AnnulusMassflow.png'
+
         fig1, ax1 = plt.subplots()
-        ax1.plot(P_annulus/1e5)
-        fig1, ax1 = plt.subplots()
-        ax1.plot(q_conv_w2)
-        ax1.set_ylabel('h2')
+        ax1.plot(self.u)
+        ax1.set_xlabel('Z (m)')
+        ax1.set_ylabel('U (m/s)')
+        figname1 = 'Annulus_axial_velocity.png'
+
+        fig2,ax2 = plt.subplots()
+        ax2.plot(T_annulus)
+        ax2.set_xlabel('Z (m)')
+        ax2.set_ylabel('Temperature (K)')
+        figname2 = 'Annulus_Temperature.png'
+
+        fig3, ax3 = plt.subplots()
+        ax3.plot(P_annulus)
+        ax3.set_xlabel('Z (m)')
+        ax3.set_ylabel('Pressure (Pa)')
+        figname3 = 'Annulus_pressure.png'
+
+        fig4, ax4 = plt.subplots()
+        ax4.plot(q_conv_w2)
+        ax4.set_ylabel('Liner Convective heat transfer coefficient (W/m$^2$-K)')
+        ax4.set_xlabel('Z (m)')
+        figname4 = 'Annulus_liner_convheattransfercoeff.png'
+
+        figures = [fig, fig1, fig2, fig3, fig4]
+        fignames = [figname, figname1, figname2, figname3, figname4]
+
+        pathsave = parentdir + '/data/annulus_convection_verification/'
+        for f, name in zip(figures, fignames):
+            f.savefig(os.path.join(pathsave, name), dpi=600, bbox_inches='tight')
         plt.show()
 
 

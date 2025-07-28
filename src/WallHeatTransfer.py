@@ -13,7 +13,7 @@ class WallHeatTransfer:
         self.L=1
         self.sigma = 5.67e-8
 
-    def wall_matrix_setup_fdm(self,mesh,q_rad_inner,q_rad_outer,q_conv1,q_conv2,T_f_cool,T_g,T_in,Tw_upper):
+    def wall_matrix_setup_fdm(self,mesh,q_rad_inner,q_rad_outer,q_conv2,T_f_cool,T_g,T_in,conv_coeff_P_bottom,conv_B_vect_bottom):
         """
         Heat transfer in solid wall. Finite Difference Discretization
         :param mesh: solid wall mesh resolved along length and thickness
@@ -46,7 +46,7 @@ class WallHeatTransfer:
 
                 elif i==0 and j<mesh.num_thickness-1 and j>0:
                     # left boundary
-                    B_vect[ind] += -(k * dy * T_in/ (dz**2))
+                    B_vect[ind] += -(k * dy * T_f_cool[i]/ (dz**2))
                     A_mat[ind, ind_z1] += (k * dy / (dz**2))
                     A_mat[ind, ind_y1] += (k * dz / (dy**2))
                     A_mat[ind, ind_y0] += (k * dz / (dy**2))
@@ -69,7 +69,7 @@ class WallHeatTransfer:
                         A_mat[ind, ind_z0] += (k * dy / (dz**2))
                     elif i==0:
                         # left boundary
-                        B_vect[ind] += -(k * dy * T_in / (dz**2))
+                        B_vect[ind] += -(k * dy * T_f_cool[i] / (dz**2))
                         A_mat[ind, ind_z1] += (k * dy / (dz ** 2))
                         # A_mat[ind, ind] += -(k * dy / (dz ** 2))
                     elif i==mesh.num_axial-1:
@@ -85,15 +85,15 @@ class WallHeatTransfer:
 
                 elif j==0:
                     # bottom end boundary condition of wall
-                    B_vect[ind] += -(q_conv1[i]*(dz/dy)*T_g[i]) - (q_rad_inner[i] * dz)#  -(k*T_g[i]*dz/(dy**2))
-                    A_mat[ind, ind] += (k * dz / (dy**2)) - q_conv1[i] * (dz/dy)
+                    B_vect[ind] += (conv_B_vect_bottom[i]*(dz/dy)) - (q_rad_inner[i] * dz)#  -(k*T_g[i]*dz/(dy**2))
+                    A_mat[ind, ind] += (k * dz / (dy**2)) + conv_coeff_P_bottom[i] * (dz/dy)
                     A_mat[ind, ind_y1] += (k * dz / (dy**2))
                     if i<mesh.num_axial-1 and i>0:
                         A_mat[ind, ind_z1] += (k * dy / (dz**2))
                         A_mat[ind, ind_z0] += (k * dy / (dz**2))
                     elif i==0:
                         # left boundary
-                        B_vect[ind] += -(k * dy * T_in / (dz**2))
+                        B_vect[ind] += -(k * dy * T_f_cool[i] / (dz**2))
                         A_mat[ind, ind_z1] += (k * dy / (dz ** 2))
                         # A_mat[ind, ind] += (k * dy / (dz ** 2))
                     elif i==mesh.num_axial-1:
@@ -213,8 +213,8 @@ class WallHeatTransfer:
 
         return A_mat,B_vect
 
-    def solver(self,mesh,q_rad_inner,q_rad_outer,q_conv1,q_conv2,T_f_cool,T_g,T_in,Tw_upper):
-        A_mat, B_vect = self.wall_matrix_setup_fdm(mesh,q_rad_inner,q_rad_outer,q_conv1,q_conv2,T_f_cool,T_g,T_in,Tw_upper)
+    def solver(self,mesh,q_rad_inner,q_rad_outer,q_conv2,T_f_cool,T_g,T_in,conv_coeff_P_bottom,conv_B_vect_bottom):
+        A_mat, B_vect = self.wall_matrix_setup_fdm(mesh,q_rad_inner,q_rad_outer,q_conv2,T_f_cool,T_g,T_in,conv_coeff_P_bottom,conv_B_vect_bottom)
         Tw = scipy.linalg.solve(A_mat,B_vect)
 
         return Tw

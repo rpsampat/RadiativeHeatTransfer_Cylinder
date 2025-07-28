@@ -1,6 +1,12 @@
+import os
+import sys
+import inspect
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir+'/src/')
 
 def Nusselt_local_lam_developing_Tw_const(Re,Pr,dia,x):
     Nu_x_1 = 3.66
@@ -81,6 +87,29 @@ def convection_liner(mdot_comb,dia, x,T,P,X,gas):
 
     return h_x
 
+def extract_effectiveness():
+    import csv
+
+    with open(parentdir+'/data/'+'eta_vs_x_Krewinkel2013_alpha30.csv', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        xbyd = []
+        eta=[]
+        count = 0
+        for row in reader:
+            if count<1:
+                count += 1
+                continue
+            # Replace commas with dots in both columns
+            xbyd.append(float(row[0].replace(',', '.')))
+            eta.append(float(row[1].replace(',', '.')))
+
+
+            count+=1
+
+    # print(f"xbyd: {xbyd}, Eta: {eta}")
+    return xbyd, eta
+
+
 def main():
     Re = 6500
     Pr = 0.7
@@ -94,4 +123,5 @@ def main():
     plt.show()
 
 if __name__=="__main__":
-    main()
+    # main()
+    extract_effectiveness()
