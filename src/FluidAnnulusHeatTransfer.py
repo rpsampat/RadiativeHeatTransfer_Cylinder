@@ -344,9 +344,9 @@ class FluidHeatTransfer:
         q_conv_w2 = self.h2 * (T_annulus - T_w2)
 
         # print('h1=',self.h1)
-        print('Epsi_p=',epsi_p)
-        print('Epsi_t=', epsi_T)
-        print('Epsi_u=',epsi_u)
+        # print('Epsi_p=',epsi_p)
+        # print('Epsi_t=', epsi_T)
+        # print('Epsi_u=',epsi_u)
 
         return self.h1, self.h2, np.array(T_annulus), np.array(P_out), np.array(rho_annulus)
 

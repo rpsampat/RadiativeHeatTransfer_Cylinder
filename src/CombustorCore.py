@@ -58,8 +58,8 @@ class CombustorCore:
         mfc_out = ct.MassFlowController(Reactor_list[i], res_out,mdot = mdot)
         net = ct.ReactorNet(Reactor_list)
         # r2.thermo.T=2000
-        print(r1.thermo)
-        print(r1.thermo.T)
+        # print(r1.thermo)
+        # print(r1.thermo.T)
         t=0
         net.advance_to_steady_state()
         T_final =[]
@@ -69,7 +69,7 @@ class CombustorCore:
             T_final.append(Reactor_list[i].thermo.T)
             P_final.append(Reactor_list[i].thermo.P)
             X_final.append(Reactor_list[i].thermo.X)
-        print(T_final)
+        # print(T_final)
 
         return T_final, P_final, X_final
 
