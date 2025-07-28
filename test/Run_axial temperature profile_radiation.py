@@ -53,6 +53,8 @@ class AxialTempProfile_Cylinder:
         T_surf = self.wall_temperature(mesh_surf_obj)
         T_vol = self.vol_temperature(mesh_vol_obj)
 
+        DEF_obj = RadiationCode.DirectExchangeFactor(mesh_surf_obj, mesh_surf_obj, mesh_vol_obj)
+        DEF_obj.eval()
         RC_obj = RadiationCode.ZonalMethod()
         SiSj, SiGj, GiSj, GiGj = RC_obj.matrix_main(mesh_surf_obj, mesh_surf_obj, mesh_vol_obj)
 
