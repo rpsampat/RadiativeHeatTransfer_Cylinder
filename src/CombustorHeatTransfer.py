@@ -286,6 +286,7 @@ class HeatTransfer:
                                                                                                 T_annulus,
                                                                                                 P_annulus, rho_annulus,
                                                                                                 T_w1, T_w2)
+            self.core_obj.m_inj = self.Conv_HT_obj.m_inj
             # Convective heat transfer inner surface of liner
             if self.verbose == 'y':
                 print('Liner Inner Convective Heat Flux Solver Active')

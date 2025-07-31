@@ -190,10 +190,11 @@ class ZonalMethod:
 
 
 class DirectExchangeFactor:
-    def __init__(self,mesh_surf1,mesh_surf2,mesh_vol1):
+    def __init__(self,mesh_surf1,mesh_surf2,mesh_vol1, path_absorb):
         self.surf1 = mesh_surf1
         self.surf2 = mesh_surf2
         self.vol1 = mesh_vol1
+        self.path_absorb = path_absorb
         # self.main_surf()
         # self.main_vol()
 
@@ -209,8 +210,11 @@ class DirectExchangeFactor:
         S2 = (s_x**2)+(s_y**2)+(s_z**2)
         cos_theta_i_S2 = ((self.surf1.n_x[i]*-s_x)+(self.surf1.n_y[i]*-s_y)+(self.surf1.n_z[i]*-s_z))/math.sqrt(S2)
         cos_theta_j_S2 = ((self.surf2.n_x[j] * s_x) + (self.surf2.n_y[j] * s_y) + (self.surf2.n_z[j] * s_z))/math.sqrt(S2)
-        kappa = self.vol1.kappa[i]
-        kappa_S = kappa * math.sqrt(S2)
+        if self.path_absorb=='on':
+            kappa, kappa_S = self.path_absorption_sisj(i, j, S2, s_x, s_y, s_z)
+        else:
+            kappa = self.vol1.kappa[i]
+            kappa_S = kappa * math.sqrt(S2)
         try:
             ind_neg = np.where(cos_theta_i_S2<0)[0]
             cos_theta_i_S2[ind_neg]=0
@@ -226,12 +230,86 @@ class DirectExchangeFactor:
         s_z = self.vol1.z[i] - self.surf1.z[j]
         S2 = (s_x ** 2) + (s_y ** 2) + (s_z ** 2)
         cos_theta_j_S2 = ((self.surf2.n_x[j] * s_x) + (self.surf2.n_y[j] * s_y) + (self.surf2.n_z[j] * s_z))/math.sqrt(S2)
-        # kappa, kappa_S = self.path_absorption(i,j)
-        kappa = self.vol1.kappa[i]
-        kappa_S = kappa * math.sqrt(S2)
+        if self.path_absorb=='on':
+            kappa, kappa_S = self.path_absorption_gisj(i,j)
+        else:
+            kappa = self.vol1.kappa[i]
+            kappa_S = kappa * math.sqrt(S2)
         gisj = math.exp(-kappa_S)*cos_theta_j_S2 * kappa * self.surf1.Area[j] * self.vol1.Volume[i] / (math.pi * (S2))
 
         return gisj
+
+    def path_absorption_sisj(self, i, j, S,s_x,s_y,s_z):
+        # Determining net kappa along absorption path
+        if S == 0:
+            kappa_avg = self.vol1.kappa[i]
+            kappa_S_avg = 0
+        else:
+            ds = math.pow((self.vol1.Volume_total / self.vol1.N_vol), 0.333)
+            num_pts = int(S / (2 * ds)) + 1
+            ds = S / num_pts
+            kappa_sum = 0
+            kappa_S_avg = 0
+            for p in range(num_pts):
+                x2 = self.surf1.x[j] + ((p * ds) + ds / 2) * s_x / S
+                y2 = self.surf1.y[j] + ((p * ds) + ds / 2) * s_y / S
+                z2 = self.surf1.z[j] + ((p * ds) + ds / 2) * s_z / S
+                ind_x = np.where(np.abs(self.vol1.x - x2) < ds / 2)[0]
+                ind_y = np.where(np.abs(self.vol1.y - y2) < ds / 2)[0]
+                ind_z = np.where(np.abs(self.vol1.z - z2) < ds / 2)[0]
+                ind_intersect = np.intersect1d(ind_x, ind_y)
+                ind_intersect = np.intersect1d(ind_intersect, ind_y)
+                kappa_local = 0
+                if len(ind_intersect) == 0:
+                    continue
+                else:
+                    for q in range(len(ind_intersect)):
+                        kappa_local += self.vol1.kappa[q]
+                    kappa_local = kappa_local / len(ind_intersect)
+                    kappa_sum += kappa_local
+
+            kappa_avg = kappa_sum * ds / S
+            kappa_S_avg = kappa_sum * ds
+
+        return kappa_avg, kappa_S_avg
+
+    def path_absorption_gisj(self, i, j, S,s_x,s_y,s_z):
+        # s_x = self.vol1.x[i] - self.surf1.x[j]
+        # s_y = self.vol1.y[i] - self.surf1.y[j]
+        # s_z = self.vol1.z[i] - self.surf1.z[j]
+        # S = math.sqrt((s_x ** 2) + (s_y ** 2) + (s_z ** 2))
+        # Determining net kappa along absorption path
+        if S == 0:
+            kappa_avg = self.vol1.kappa[i]
+            kappa_S_avg = 0
+        else:
+            ds = math.pow((self.vol1.Volume_total / self.vol1.N_vol), 0.333)
+            num_pts = int(S / (2 * ds)) + 1
+            ds = S / num_pts
+            kappa_sum = 0
+            kappa_S_avg = 0
+            for p in range(num_pts):
+                x2 = self.surf1.x[j] + ((p * ds) + ds / 2) * s_x / S
+                y2 = self.surf1.y[j] + ((p * ds) + ds / 2) * s_y / S
+                z2 = self.surf1.z[j] + ((p * ds) + ds / 2) * s_z / S
+                ind_x = np.where(np.abs(self.vol1.x - x2) < ds / 2)[0]
+                ind_y = np.where(np.abs(self.vol1.y - y2) < ds / 2)[0]
+                ind_z = np.where(np.abs(self.vol1.z - z2) < ds / 2)[0]
+                ind_intersect = np.intersect1d(ind_x, ind_y)
+                ind_intersect = np.intersect1d(ind_intersect, ind_y)
+                kappa_local = 0
+                if len(ind_intersect) == 0:
+                    continue
+                else:
+                    for q in range(len(ind_intersect)):
+                        kappa_local += self.vol1.kappa[q]
+                    kappa_local = kappa_local / len(ind_intersect)
+                    kappa_sum += kappa_local
+
+            kappa_avg = kappa_sum * ds / S
+            kappa_S_avg = kappa_sum * ds
+
+        return kappa_avg, kappa_S_avg
 
     def path_absorption(self,i,j):
         s_x = self.vol1.x[i] - self.vol1.x[j]
@@ -276,9 +354,11 @@ class DirectExchangeFactor:
         s_y = self.vol1.y[i] - self.vol1.y[j]
         s_z = self.vol1.z[i] - self.vol1.z[j]
         S2 = (s_x ** 2) + (s_y ** 2) + (s_z ** 2)
-        # kappa, kappa_S = self.path_absorption(i,j)
-        kappa = self.vol1.kappa[i]
-        kappa_S = kappa*math.sqrt(S2)
+        if self.path_absorb == 'on':
+            kappa, kappa_S = self.path_absorption(i, j)
+        else:
+            kappa = self.vol1.kappa[i]
+            kappa_S = kappa*math.sqrt(S2)
         gigj = math.exp(-kappa_S)*(kappa**2)*self.vol1.Volume[i] * self.vol1.Volume[j] / (math.pi * (S2))
 
         return gigj

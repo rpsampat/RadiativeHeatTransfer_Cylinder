@@ -64,7 +64,7 @@ if __name__ == '__main__':
     Tin_list = np.arange(800, 1300, 200)
     Uf_list = np.arange(0.0, 0.95, 0.3)
     EAR_list = np.arange(2, 6, 1)
-    BR_list = np.linspace(0.3, 2.0, 5)#np.linspace(0.01,0.1,5)#
+    BR_list = np.linspace(0.01,0.1,5)#np.linspace(0.32, 2.0, 5)#
     Beta_list = [0.0]#np.linspace(0.0,0.5,5)
     # Generate all parameter combinations
     param_combinations = list(itertools.product(Tin_list, Uf_list, EAR_list, BR_list,Beta_list))
@@ -82,5 +82,5 @@ if __name__ == '__main__':
     dict_save['EAR'] = EAR_list
     dict_save['BR'] = BR_list
     dict_save['Beta'] = Beta_list
-    with open(parentdir+'/data/' + 'dictsave_DOE_Pin_'+str(Pin) +'_highBR' + '.pkl', 'wb') as file:
+    with open(parentdir+'/data/' + 'dictsave_DOE_Pin_'+str(Pin) +'_lowBR' + '.pkl', 'wb') as file:
         pickle.dump(dict_save, file, pickle.HIGHEST_PROTOCOL)
