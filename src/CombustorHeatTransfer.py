@@ -294,11 +294,19 @@ class HeatTransfer:
             k_w_inner = self.mesh_wall_liner.k_mat[[(i) * self.mesh_wall_liner.num_thickness for i in range(len(T_g))]]
             x =x +x[1]
             h_conv1 = FilmCoolingLiner.convection_liner(self.mdot_comb,self.D,x,T_g,P_g,X_g,gas_comb)
-            eta = 0.73 * np.ones(len(T_annulus))
-            Tw_in = T_g - eta * (T_g-T_annulus)
+            M = np.array([0.3,0.5,1.5,2.5])
+            eta_list= np.array([0.3,0.4,0.5,0.55])
+            if self.BR<M[0]:
+                eta = 0.25 * np.ones(len(T_annulus))
+            else:
+                ind_br = np.where(self.BR>M)[0][-1]
+                eta_val = eta_list[ind_br]+((eta_list[ind_br+1]-eta_list[ind_br])/(M[ind_br+1]-M[ind_br]))*(self.BR-M[ind_br])
+                eta= eta_val * np.ones(len(T_annulus))
+
+            Tw_in = T_g - (eta * (T_g-T_annulus))
             # h_conv1 = h_conv1[5]*np.ones(len(x))
-            conv_coeff_P_bottom = -2*11.4/(dz)
-            conv_B_vect_bottom = -2*11.4 * Tw_in/(dz)
+            conv_coeff_P_bottom = -2*k_w_inner/(dz)
+            conv_B_vect_bottom = -2*k_w_inner * Tw_in/(dz)
             # conv_coeff_P_bottom = -h_conv1
             # conv_B_vect_bottom = -h_conv1*T_g
 
@@ -315,8 +323,8 @@ class HeatTransfer:
             Tw_plot = np.array(T_liner_th + (Tw_plot - T_liner_th) * alpha)
             # Casing
             h_conv_casing_outer = np.zeros(len(h_conv_liner_outer))
-            conv_coeff_P_bottom_casing = -h_conv1
-            conv_B_vect_bottom_casing = -h_conv1*T_annulus
+            conv_coeff_P_bottom_casing = -h_conv_casing
+            conv_B_vect_bottom_casing = -h_conv_casing*T_annulus
             Tw_casing = self.Wall_HT_obj.solver(self.mesh_wall_casing, -q_rad_surf2_inner, -q_rad_outer*0.0, h_conv_casing_outer, T_annulus, T_annulus,
                                     self.T_in, conv_coeff_P_bottom_casing, conv_B_vect_bottom_casing)
             Tw1_plot = np.reshape(Tw_casing, (self.mesh_wall_casing.num_thickness, self.mesh_wall_casing.num_axial), order='F')

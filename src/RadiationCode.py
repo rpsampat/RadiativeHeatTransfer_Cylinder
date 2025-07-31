@@ -56,8 +56,8 @@ class ZonalMethod:
         return Q
 
     def matrix_surf(self,mesh_surf,DEF):
-        DEF.main_vol()  # re-evaluating direct exchange factors associated with suurface.
-        sisj = self.sisj_eval()
+        sisj = DEF.main_surf()  # re-evaluating direct exchange factors associated with surface.
+        # sisj = self.sisj_eval()
         epsilon_surf = 0.9 * np.ones(mesh_surf.N_surf)  # emissivity
         rho_surf = (1 - 0.9) * np.ones(mesh_surf.N_surf)  # reflectivity
         T = self.T_matrix_eval(epsilon_surf, rho_surf, mesh_surf.Area, sisj)
@@ -74,9 +74,9 @@ class ZonalMethod:
         :param DEF: Direct exchange factor object
         :return:
         """
-        DEF.main_vol() # re-evaluating direct exchange factors associated with gas phase.
-        gisj = self.gisj_eval()
-        gigj = self.gigj_eval()
+        gisj, gigj = DEF.main_vol() # re-evaluating direct exchange factors associated with gas phase.
+        # gisj = self.gisj_eval()
+        # gigj = self.gigj_eval()
         epsilon_surf = 0.9 * np.ones(mesh_surf.N_surf)  # emissivity
         rho_surf = (1 - 0.9) * np.ones(mesh_surf.N_surf)  # reflectivity
         R = self.R_matrix_eval(gisj, epsilon_surf)
@@ -294,9 +294,11 @@ class DirectExchangeFactor:
             for j in range(i+1,N1):
                 S[i,j] = self.sisj(i,j)
                 S[j,i] = S[i,j]
-        file_path = datadir+'DirectExchangeFactor_ss'
-        with open(file_path, 'wb') as file:
-            pickle.dump(S, file, pickle.HIGHEST_PROTOCOL)
+        # file_path = datadir+'DirectExchangeFactor_ss'
+        # with open(file_path, 'wb') as file:
+        #     pickle.dump(S, file, pickle.HIGHEST_PROTOCOL)
+
+        return S
 
     def main_vol(self):
         N1 = self.vol1.N_vol
@@ -306,17 +308,19 @@ class DirectExchangeFactor:
         for i in range(N1):
             for j in range(N2):
                 GS[i, j] = self.gisj(i, j)
-        file_path = datadir+'DirectExchangeFactor_gs'
-        with open(file_path, 'wb') as file:
-            pickle.dump(GS, file, pickle.HIGHEST_PROTOCOL)
+        # file_path = datadir+'DirectExchangeFactor_gs'
+        # with open(file_path, 'wb') as file:
+        #     pickle.dump(GS, file, pickle.HIGHEST_PROTOCOL)
 
         GG = np.zeros((N1,N1))
         for i in range(N1):
             for j in range(i+1,N1):
                 GG[i, j] = self.gigj(i, j)
                 GG[j, i] = GG[i, j]
-        file_path = datadir+'DirectExchangeFactor_gg'
-        with open(file_path, 'wb') as file:
-            pickle.dump(GG, file, pickle.HIGHEST_PROTOCOL)
+        # file_path = datadir+'DirectExchangeFactor_gg'
+        # with open(file_path, 'wb') as file:
+        #     pickle.dump(GG, file, pickle.HIGHEST_PROTOCOL)
+
+        return GS, GG
 
 
